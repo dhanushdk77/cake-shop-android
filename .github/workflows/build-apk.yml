@@ -1,1 +1,57 @@
+name: Build Cake Shop Android APK
 
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'CakeShop_Android_APK_Project.zip'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK platform 35
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install Gradle 8.7
+        run: |
+          curl -L https://services.gradle.org/distributions/gradle-8.7-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt
+          echo "/opt/gradle-8.7/bin" >> "$GITHUB_PATH"
+
+      - name: Extract Android project
+        run: |
+          unzip -q CakeShop_Android_APK_Project.zip -d extracted
+          test -f extracted/CakeShopAndroid/settings.gradle
+
+      - name: Build debug APK
+        working-directory: extracted/CakeShopAndroid
+        run: gradle assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CakeShop-debug-APK
+          path: extracted/CakeShopAndroid/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
